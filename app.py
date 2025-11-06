@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, session, flash, Response
+﻿from flask import Flask, render_template, request, session, flash, Response
 import re
 import cv2
 from onlineproctor import head_pose_detect, detect_phone_person, detect_faces_wc
@@ -45,41 +45,52 @@ def make_encoding(username,known_face_encodings, file_path):
     known_face_encodings.append(encoding[username])
 
 # function that generates frame and process it to recognise face, detect mobile phones and head position
-def generate_frames(model, known_face_encodings,known_face_names):
-    camera = cv2.VideoCapture(0)
+def generate_frames(model, known_face_encodings, known_face_names):
+    if not os.path.exists('candidates.csv') or 'index' not in globals():
+        print("⚠️ No user session or candidates.csv missing.")
+        return
+
     candidates = pd.read_csv('candidates.csv')
-    global index
     username = candidates[candidates.id == index].username.values[0]
-    while True:
-        ## read the camera frame
-        
-        success,frame=camera.read()
-        if not success:
-            break
-        else:
-            left, right, top, bottom, name= detect_faces_wc(known_face_encodings,known_face_names, frame) # detecting and recognising faces
-            if(name!= -1):
+    camera = cv2.VideoCapture(0)
+
+    try:
+        while True:
+            success, frame = camera.read()
+            if not success or frame is None or frame.size == 0:
+                continue
+
+            # --- Face Recognition ---
+            result = detect_faces_wc(known_face_encodings, known_face_names, frame)
+            if result and result[0] != -1:
+                left, right, top, bottom, name = result
                 cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
                 cv2.rectangle(frame, (left, bottom - 35), (right, bottom), (0, 0, 255), cv2.FILLED)
-                if(name != username):
-                    cv2.putText(frame, 'Unknown', (left + 6, bottom - 6),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+                if name != username:
+                    cv2.putText(frame, 'Unknown', (left + 6, bottom - 6), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
                     cv2.putText(frame, "Unknown person detected", (20, 80), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
                 else:
-                    cv2.putText(frame, name, (left + 6, bottom - 6),cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
-            head_pos_text= head_pose_detect(frame) # detecting head position and raising alerts
-            if head_pos_text!='Forward': 
-                cv2.putText(frame, head_pos_text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-            obj_det_text= detect_phone_person(model, frame) # detecting phone and multiple person
-            if obj_det_text!=' ':
-                cv2.putText(frame, obj_det_text, (20, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
-            ret,buffer=cv2.imencode('.jpg',frame)
-            frame=buffer.tobytes()
+                    cv2.putText(frame, name, (left + 6, bottom - 6), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
 
-        yield(b'--frame\r\n'
+            # --- Head Pose Detection ---
+            head_pos_text = head_pose_detect(frame)
+            if head_pos_text and head_pos_text != 'Forward':
+                cv2.putText(frame, head_pos_text, (20, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+
+            # --- Object Detection ---
+            obj_det_text = detect_phone_person(model, frame)
+            if obj_det_text.strip():
+                cv2.putText(frame, obj_det_text, (20, 150), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+
+            ret, buffer = cv2.imencode('.jpg', frame)
+            frame = buffer.tobytes()
+
+            yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-    camera.release()
-    cv2.destroyAllWindows()
+    finally:
+        camera.release()
+        cv2.destroyAllWindows()
 
 
 @app.route("/", methods=["GET", "POST"])

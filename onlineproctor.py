@@ -1,4 +1,4 @@
-import face_recognition
+﻿import face_recognition
 import cv2
 import numpy as np
 import os
@@ -114,47 +114,42 @@ def detect_phone_person(model, img):
     return text
 
 # function for recognising face 
-def detect_faces_wc(known_face_encodings,known_face_names, frame):
-
-    face_locations = []
-    face_encodings = []
-    face_names = []
-    process_this_frame = True
+def detect_faces_wc(known_face_encodings, known_face_names, frame):
     small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-
-
     rgb_small_frame = small_frame[:, :, ::-1]
 
+    # Ensure frame is uint8
+    rgb_small_frame = np.ascontiguousarray(rgb_small_frame, dtype=np.uint8)
 
+    face_locations = face_recognition.face_locations(rgb_small_frame)
 
-    if process_this_frame:
+    # 🧩 Safety check: skip if no faces found
+    if not face_locations:
+        return -1, -1, -1, -1, -1
 
-        face_locations = face_recognition.face_locations(rgb_small_frame)
+    # 🧩 Compute encodings safely
+    try:
         face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+    except TypeError:
+        # Fall back in case of invalid landmarks
+        return -1, -1, -1, -1, -1
 
-        face_names = []
-        for face_encoding in face_encodings:
-
-            matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
-            name = "Unknown"
-
-
+    face_names = []
+    for face_encoding in face_encodings:
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+        name = "Unknown"
+        if len(known_face_encodings) > 0:
             face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
             best_match_index = np.argmin(face_distances)
             if matches[best_match_index]:
                 name = known_face_names[best_match_index]
-
-            face_names.append(name)
-
-    process_this_frame = not process_this_frame
-
-    
+        face_names.append(name)
 
     for (top, right, bottom, left), name in zip(face_locations, face_names):
-    #did image scaling to improve fps
         top *= 4
         right *= 4
         bottom *= 4
         left *= 4
         return left, right, top, bottom, name
+
     return -1, -1, -1, -1, -1

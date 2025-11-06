@@ -1,0 +1,31 @@
+# ---- Visual Studio / IDE ----
+.vs/
+.vscode/
+*.user
+*.suo
+*.sln.docstates
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+*.log
+*.pot
+*.py[co]
+*$py.class
+
+# ---- Data / Temp ----
+face_images/
+candidates.csv
+known_face_names.txt
+known_face_encodings.txt
+
+# ---- OS files ----
+Thumbs.db
+*.DS_Store
+desktop.ini
