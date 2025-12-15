@@ -1,8 +1,3 @@
-Perfect — you want **this exact content converted into a clean, GitHub-ready `README.md` with proper Markdown formatting and real code blocks** so it renders correctly on GitHub.
-
-Below is your **fully formatted README**.
-You can **copy-paste this directly into `README.md`** and GitHub will render it perfectly.
-
 ---
 
 ```md
